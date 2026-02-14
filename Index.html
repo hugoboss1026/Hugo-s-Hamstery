@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hamster Tracker</title>
+
+<!-- PWA manifest -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#c47b3a">
+
+<style>
+body { font-family: Arial, sans-serif; background:#fff8e7; margin:0; padding:20px; display:flex; justify-content:center; }
+.container { width:100%; max-width:600px; padding:20px; box-sizing:border-box; }
+h1 { text-align:center; color:#c47b3a; margin-bottom:20px; }
+input, select, button { padding:10px; margin:5px 0; width:100%; box-sizing:border-box; border-radius:6px; border:1px solid #e0c89e; font-size:16px; }
+button { background-color:#c47b3a; color:white; border:none; cursor:pointer; font-weight:bold; transition:0.2s; }
+button:hover { background-color:#a65f28; }
+.hamster-card { background:#fff4d6; border:1px solid #e0c89e; padding:12px; margin:10px 0; border-radius:8px; display:flex; flex-direction:column; word-wrap:break-word; }
+.hamster-card img { width:100px; height:100px; object-fit:cover; border-radius:50%; margin-bottom:8px; cursor:pointer; transition:0.2s; }
+.hamster-card img:hover { transform:scale(1.1); }
+.hamster-photos { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; }
+.hamster-photos img { width:60px; height:60px; object-fit:cover; border-radius:50%; cursor:pointer; transition:0.2s; }
+.hamster-photos img:hover { transform:scale(1.1); }
+.hamster-card button { align-self:flex-start; margin-top:8px; padding:6px 10px; font-size:14px; }
+@media (max-width:400px) {
+    h1 { font-size:24px; }
+    input, select, button { font-size:14px; padding:8px; }
+    .hamster-card img { width:80px; height:80px; }
+    .hamster-photos img { width:50px; height:50px; }
+}
+.page { display:none; }
+.page.active { display:block; }
+h2.clickable { cursor:pointer; color:#a65f28; }
+.modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background-color:rgba(0,0,0,0.8); justify-content:center; align-items:center; }
+.modal-content { position:relative; max-width:90%; max-height:80%; }
+.modal-content img { width:100%; height:auto; border-radius:12px; }
+.modal-close, .modal-prev, .modal-next { position:absolute; top:50%; transform:translateY(-50%); color:white; font-size:2em; background:rgba(0,0,0,0.4); border:none; border-radius:50%; width:50px; height:50px; cursor:pointer; user-select:none; }
+.modal-close { top:10px; right:10px; transform:none; font-size:1.5em; }
+.modal-prev { left:10px; }
+.modal-next { right:10px; }
+#modalCounter { position:absolute; bottom:15px; left:50%; transform:translateX(-50%); color:white; font-weight:bold; font-size:16px; opacity:0; transition:0.5s; }
+#updateDetailsSection { display:none; margin-top:15px; background:#fff8e7; padding:15px; border-radius:12px; width:90%; max-width:400px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>🐹 Hamster Tracker</h1>
+
+<!-- Add Page -->
+<div id="addPage" class="page active">
+    <h2>Add Hamster</h2>
+    <input type="text" id="hamsterName" placeholder="Hamster Name">
+    <select id="hamsterBreed">
+        <option value="">Select Breed</option>
+        <option value="Syrian">Syrian</option>
+        <option value="Roborovski">Roborovski</option>
+        <option value="Campbell">Campbell</option>
+        <option value="Winter White">Winter White</option>
+        <option value="Chinese">Chinese</option>
+    </select>
+    <select id="hamsterGender">
+        <option value="">Select Gender</option>
+        <option value="Male">Male</option>
+        <option value="Female">Female</option>
+        <option value="Unknown">Unknown</option>
+    </select>
+    <input type="date" id="hamsterBirth">
+    <input type="file" id="hamsterImages" accept="image/*" multiple>
+    <button onclick="addHamster()">Add Hamster</button>
+    <h2 class="clickable" onclick="showListPage()">🐹 Hamster List</h2>
+</div>
+
+<!-- List Page -->
+<div id="listPage" class="page">
+    <h2 class="clickable" onclick="showAddPage()">⬅ Back to Add Hamster</h2>
+    <div id="hamsterList"></div>
+</div>
+</div>
+
+<!-- Modal -->
+<div class="modal" id="hamsterModal">
+    <div style="position:relative; width:90%; max-width:500px;">
+        <img class="modal-content" id="modalImage" src="">
+        <div style="display:flex; gap:5px; margin-top:5px; justify-content:center;">
+            <button onclick="deletePhoto()">Delete Photo</button>
+            <button onclick="document.getElementById('updatePhotoInput').click()">Update Photo</button>
+            <!-- Removed Update Details button -->
+        </div>
+        <div id="modalCounter">1 / 1</div>
+        <button class="modal-close" onclick="closeModal()">×</button>
+        <button class="modal-prev" onclick="prevImage()">‹</button>
+        <button class="modal-next" onclick="nextImage()">›</button>
+    </div>
+</div>
+
+<input type="file" id="updatePhotoInput" style="display:none" accept="image/*">
+
+<div id="updateDetailsSection">
+    <h3>Update Hamster Details</h3>
+    <input type="text" id="updateName" placeholder="Name">
+    <input type="text" id="updateBreed" placeholder="Breed">
+    <select id="updateGender">
+        <option value="Male">Male</option>
+        <option value="Female">Female</option>
+        <option value="Unknown">Unknown</option>
+    </select>
+    <input type="date" id="updateBirth">
+    <button onclick="saveHamsterUpdate()">Save</button>
+    <button onclick="closeUpdateDetails()" style="background:#aaa; margin-top:5px;">Cancel</button>
+</div>
+
+<script>
+// ---------- JS logic ----------
+
+let hamsters=[], currentModalImages=[], currentImageIndex=0, currentHamsterIndex=null;
+
+// LocalStorage
+function saveHamstersToLocal(){ localStorage.setItem('hamsterTrackerData', JSON.stringify(hamsters.map(h=>({name:h.name, breed:h.breed, gender:h.gender, birthDate:h.birthDate.toISOString(), images:h.images})))); }
+function loadHamstersFromLocal(){ const saved=localStorage.getItem('hamsterTrackerData'); if(saved){ JSON.parse(saved).forEach(h=>hamsters.push({name:h.name, breed:h.breed, gender:h.gender, birthDate:new Date(h.birthDate), images:h.images})); } }
+
+// Compress Image
+function compressImage(file,maxW=800,maxH=800,quality=0.7){ return new Promise((resolve,reject)=>{ const reader=new FileReader(); reader.onload=e=>{ const img=new Image(); img.onload=()=>{ let canvas=document.createElement('canvas'); let w=img.width,h=img.height; if(w>h){ if(w>maxW){ h*=maxW/w; w=maxW;} } else{ if(h>maxH){ w*=maxH/h; h=maxH;} } canvas.width=w; canvas.height=h; canvas.getContext('2d').drawImage(img,0,0,w,h); resolve(canvas.toDataURL('image/jpeg',quality)); }; img.onerror=err=>reject(err); img.src=e.target.result; }; reader.onerror=err=>reject(err); reader.readAsDataURL(file); }); }
+
+// Add Hamster
+async function addHamster(){ 
+    const name=document.getElementById('hamsterName').value.trim(), breed=document.getElementById('hamsterBreed').value, gender=document.getElementById('hamsterGender').value, birth=document.getElementById('hamsterBirth').value, imagesInput=document.getElementById('hamsterImages'); 
+    if(!name||!breed||!gender||!birth){ alert("Fill all fields!"); return; } 
+    let imgs=[]; if(imagesInput.files.length>0){ for(let f of imagesInput.files) imgs.push(await compressImage(f)); } 
+    hamsters.push({name,breed,gender,birthDate:new Date(birth),images:imgs}); 
+    saveHamstersToLocal(); 
+    document.getElementById('hamsterName').value=''; document.getElementById('hamsterBreed').value=''; document.getElementById('hamsterGender').value=''; document.getElementById('hamsterBirth').value=''; imagesInput.value=''; 
+    alert("Hamster added!"); renderHamsters(); 
+}
+
+// Age
+function calculateAge(b){ const now=new Date(), diff=now-b, total=Math.floor(diff/(1000*60*60*24)), y=Math.floor(total/365), rem=total%365, m=Math.floor(rem/30)+1, d=(rem%30)+1; return `${y} yrs, ${m>12?1:m} mo, ${d} days`; }
+
+// Render list (sorted by age)
+function renderHamsters(){
+    const list=document.getElementById('hamsterList');
+    list.innerHTML='';
+    const sortedHamsters=[...hamsters].sort((a,b)=>a.birthDate-b.birthDate); // older first
+    sortedHamsters.forEach(h=>{
+        let photos=''; if(h.images.length>0){ photos='<div class="hamster-photos">'+h.images.map((url,j)=>`<img src="${url}" onclick="openModal(${hamsters.indexOf(h)},${j})">`).join('')+'</div>'; }
+        const card=document.createElement('div'); card.className='hamster-card';
+        card.innerHTML=`${photos}<strong>${h.name}</strong> (${h.gender}, ${h.breed})<br>DOB: ${h.birthDate.toLocaleDateString('en-US',{month:'long',day:'2-digit',year:'numeric'})}<br>Age: <span class="age">${calculateAge(h.birthDate)}</span><br><button onclick="deleteHamster(${hamsters.indexOf(h)})">Remove</button> <button onclick="updateHamsterDetails(${hamsters.indexOf(h)})">Update Details</button>`;
+        list.appendChild(card);
+    });
+}
+
+function updateAges(){ document.querySelectorAll('.hamster-card .age').forEach((el,i)=>el.textContent=calculateAge(hamsters[i].birthDate)); }
+function deleteHamster(i){ if(confirm("Delete hamster?")){ hamsters.splice(i,1); renderHamsters(); saveHamstersToLocal(); } }
+function showListPage(){ document.getElementById('addPage').classList.remove('active'); document.getElementById('listPage').classList.add('active'); renderHamsters(); }
+function showAddPage(){ document.getElementById('listPage').classList.remove('active'); document.getElementById('addPage').classList.add('active'); }
+
+// Update Details
+function updateHamsterDetails(i){ currentHamsterIndex=i; const h=hamsters[i]; document.getElementById('updateName').value=h.name; document.getElementById('updateBreed').value=h.breed; document.getElementById('updateGender').value=h.gender; document.getElementById('updateBirth').value=h.birthDate.toISOString().split('T')[0]; document.getElementById('updateDetailsSection').style.display='block'; }
+function closeUpdateDetails(){ document.getElementById('updateDetailsSection').style.display='none'; }
+function saveHamsterUpdate(){ const h=hamsters[currentHamsterIndex], name=document.getElementById('updateName').value.trim(), breed=document.getElementById('updateBreed').value.trim(), gender=document.getElementById('updateGender').value, birth=document.getElementById('updateBirth').value; if(!name||!breed||!birth){ alert("Fill all fields!"); return;} h.name=name; h.breed=breed; h.gender=gender; h.birthDate=new Date(birth); renderHamsters(); saveHamstersToLocal(); closeUpdateDetails(); }
+
+// Modal
+function openModal(hIndex,iIndex){ currentHamsterIndex=hIndex; currentModalImages=hamsters[hIndex].images; currentImageIndex=iIndex; document.getElementById('modalImage').src=currentModalImages[currentImageIndex]; document.getElementById('hamsterModal').style.display='flex'; updateModalCounter(); showModalCounter(); closeUpdateDetails(); }
+function closeModal(){ document.getElementById('hamsterModal').style.display='none'; closeUpdateDetails(); }
+function nextImage(){ if(!currentModalImages.length)return; currentImageIndex=(currentImageIndex+1)%currentModalImages.length; document.getElementById('modalImage').src=currentModalImages[currentImageIndex]; updateModalCounter(); showModalCounter(); }
+function prevImage(){ if(!currentModalImages.length)return; currentImageIndex=(currentImageIndex-1+currentModalImages.length)%currentModalImages.length; document.getElementById('modalImage').src=currentModalImages[currentImageIndex]; updateModalCounter(); showModalCounter(); }
+function updateModalCounter(){ const c=document.getElementById('modalCounter'); c.textContent=currentModalImages.length?`${currentImageIndex+1} / ${currentModalImages.length}`:'0 / 0'; }
+function showModalCounter(){ const c=document.getElementById('modalCounter'); c.style.opacity=1; if(window.counterFadeTimeout) clearTimeout(window.counterFadeTimeout); window.counterFadeTimeout=setTimeout(()=>{c.style.opacity=0;},2500); }
+function deletePhoto(){ if(!currentModalImages.length)return; if(!confirm("Delete this photo?"))return; hamsters[currentHamsterIndex].images.splice(currentImageIndex,1); currentModalImages=hamsters[currentHamsterIndex].images; if(!currentModalImages.length){ closeModal(); renderHamsters(); saveHamstersToLocal(); return;} currentImageIndex%=currentModalImages.length; document.getElementById('modalImage').src=currentModalImages[currentImageIndex]; renderHamsters(); saveHamstersToLocal(); updateModalCounter(); showModalCounter(); }
+document.getElementById('updatePhotoInput').addEventListener('change', async function(){ const f=this.files[0]; if(!f)return; const c=await compressImage(f); hamsters[currentHamsterIndex].images[currentImageIndex]=c; currentModalImages[currentImageIndex]=c; document.getElementById('modalImage').src=c; renderHamsters(); saveHamstersToLocal(); updateModalCounter(); showModalCounter(); this.value=''; });
+
+// PWA Service Worker
+if('serviceWorker' in navigator){ window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').then(reg=>console.log('SW registered',reg.scope)).catch(err=>console.log('SW failed',err)); }); }
+
+window.onload=function(){ loadHamstersFromLocal(); renderHamsters(); setInterval(updateAges,1000); }
+</script>
+</body>
+</html>

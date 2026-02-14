@@ -1,0 +1,12 @@
+{
+  "name": "Hamster Tracker",
+  "short_name": "HamsterTracker",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#fff8e7",
+  "theme_color": "#c47b3a",
+  "icons": [
+    {"src":"icons/hamster-192.png","sizes":"192x192","type":"image/png"},
+    {"src":"icons/hamster-512.png","sizes":"512x512","type":"image/png"}
+  ]
+}
